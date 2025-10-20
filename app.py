@@ -5,9 +5,12 @@ import time
 from typing import Dict, Any, List
 import importlib.util
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed, rely on manual env var setting
 
 if importlib.util.find_spec("tqdm") is not None:
     from tqdm import tqdm  # type: ignore
