@@ -16,18 +16,21 @@ A Python tool to audit GitHub repositories for exposed API keys from popular pro
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/sunil-gumatimath/exposed-api-keys-finder.git
 cd exposed-api-keys-finder
 ```
 
 2. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 3. Set up environment variables:
 Create a `.env` file in the project root:
+
 ```
 GITHUB_TOKEN=your_github_personal_access_token_here
 ```
@@ -36,7 +39,8 @@ GITHUB_TOKEN=your_github_personal_access_token_here
 
 ### Simple Version (app.py)
 
-Basic auditing with minimal features:
+Basic auditing with minimal features. Found keys are saved to `keys.txt`.
+
 ```bash
 python app.py
 ```
@@ -44,6 +48,7 @@ python app.py
 ### Enhanced Version (app_enhanced.py)
 
 Full-featured auditing with advanced options:
+
 ```bash
 python app_enhanced.py [options]
 ```
@@ -66,28 +71,35 @@ python app_enhanced.py [options]
 #### Examples
 
 Audit all repositories for API keys:
+
 ```bash
 python app_enhanced.py
 ```
 
 Search specific repository:
+
 ```bash
 python app_enhanced.py --repo octocat/Hello-World
 ```
 
 Search with validation:
+
 ```bash
 python app_enhanced.py --validate --max-pages 5
 ```
 
 Resume interrupted scan:
+
 ```bash
 python app_enhanced.py --resume
 ```
 
 ## Output
 
-Results are saved in the specified format containing:
+Results from the enhanced script are saved in the file specified by `--output-file` (default: `audit_results.json`). A detailed log of the scan is also created in `audit.log`.
+
+The results contain the following information:
+
 - Provider (OpenAI/Anthropic)
 - Key value
 - Repository and file path
@@ -106,6 +118,7 @@ Results are saved in the specified format containing:
 ## API Keys Detected
 
 The tool searches for:
+
 - **OpenAI**: Keys matching `sk-[A-Za-z0-9_-]{48}`
 - **Anthropic**: Keys matching `sk-ant-api03-[A-Za-z0-9_-]{95}`
 
