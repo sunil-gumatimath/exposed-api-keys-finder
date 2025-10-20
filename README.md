@@ -96,16 +96,26 @@ python app_enhanced.py --resume
 
 ## Output
 
-Results from the enhanced script are saved in the file specified by `--output-file` (default: `audit_results.json`). A detailed log of the scan is also created in `audit.log`.
+### Output Files
 
-The results contain the following information:
+The scripts generate the following output files:
 
-- Provider (OpenAI/Anthropic)
-- Key value
-- Repository and file path
-- GitHub URL
-- Timestamp
-- Validation status (if enabled)
+- **keys.txt** (Simple version only): Plain text file with discovered API keys, one per line
+- **audit_results.json** (Enhanced version): Structured JSON containing detailed scan results (default output file)
+- **audit.log** (Enhanced version): Detailed scan log with timestamps, API calls, and processing information
+- **progress.json** (Enhanced version with --resume): Checkpoint file for resuming interrupted scans
+
+### Result Format
+
+Results from the enhanced script contain the following information:
+
+- **Provider**: OpenAI or Anthropic
+- **Key**: The discovered API key value
+- **Repository**: Repository name and owner
+- **Path**: File path where the key was found
+- **URL**: Direct GitHub link to the file
+- **Timestamp**: When the key was discovered
+- **Validation Status**: Whether the key is valid (if --validate was used)
 
 ## Security Considerations
 
