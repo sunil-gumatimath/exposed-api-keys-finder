@@ -4,7 +4,7 @@ A Python tool to audit GitHub repositories for exposed API keys from popular pro
 
 ## Features
 
-- **Dual Scripts**: Simple (`app.py`) and enhanced (`app_enhanced.py`) versions
+- **Comprehensive Auditor**: Single script (`github_api_key_auditor.py`) with full feature set
 - **Multi-Provider Support**: Scans for OpenAI and Anthropic API keys
 - **Flexible Search**: Search code files or commit messages
 - **Advanced Filtering**: Filter by repository stars, language, update date
@@ -37,20 +37,12 @@ GITHUB_TOKEN=your_github_personal_access_token_here
 
 ## Usage
 
-### Simple Version (app.py)
+### Github API Key Auditor
 
-Basic auditing with minimal features. Found keys are saved to `keys.txt`.
-
-```bash
-python app.py
-```
-
-### Enhanced Version (app_enhanced.py)
-
-Full-featured auditing with advanced options:
+Run the full-featured auditor with advanced options:
 
 ```bash
-python app_enhanced.py [options]
+python github_api_key_auditor.py [options]
 ```
 
 #### Command Line Options
@@ -73,39 +65,48 @@ python app_enhanced.py [options]
 Audit all repositories for API keys:
 
 ```bash
-python app_enhanced.py
+python github_api_key_auditor.py
 ```
 
 Search specific repository:
 
 ```bash
-python app_enhanced.py --repo octocat/Hello-World
+python github_api_key_auditor.py --repo octocat/Hello-World
 ```
 
 Search with validation:
 
 ```bash
-python app_enhanced.py --validate --max-pages 5
+python github_api_key_auditor.py --validate --max-pages 5
 ```
 
 Resume interrupted scan:
 
 ```bash
-python app_enhanced.py --resume
+python github_api_key_auditor.py --resume
 ```
 
 ## Output
 
-Results from the enhanced script are saved in the file specified by `--output-file` (default: `audit_results.json`). A detailed log of the scan is also created in `audit.log`.
+### Output Files
 
-The results contain the following information:
+The script generates the following output files:
 
-- Provider (OpenAI/Anthropic)
-- Key value
-- Repository and file path
-- GitHub URL
-- Timestamp
-- Validation status (if enabled)
+- **audit_results.json**: Structured JSON containing detailed scan results (default output file)
+- **audit.log**: Detailed scan log with timestamps, API calls, and processing information
+- **progress.json**: Checkpoint file for resuming interrupted scans
+
+### Result Format
+
+Results from the enhanced script contain the following information:
+
+- **Provider**: OpenAI or Anthropic
+- **Key**: The discovered API key value
+- **Repository**: Repository name and owner
+- **Path**: File path where the key was found
+- **URL**: Direct GitHub link to the file
+- **Timestamp**: When the key was discovered
+- **Validation Status**: Whether the key is valid (if --validate was used)
 
 ## Security Considerations
 
@@ -127,6 +128,17 @@ The tool searches for:
 - Python 3.8+
 - GitHub Personal Access Token with `repo` scope
 - Internet connection for API calls
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Disclaimer
 
