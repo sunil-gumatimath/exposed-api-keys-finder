@@ -12,6 +12,9 @@ from pathlib import Path
 from datetime import datetime
 import importlib.util
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 if importlib.util.find_spec("tqdm") is not None:
     from tqdm import tqdm
@@ -21,13 +24,14 @@ else:
 ANTHROPIC_KEY_PATTERN = r'sk-ant-api03-[A-Za-z0-9_-]{95}'
 OPENAI_KEY_PATTERN = r'sk-[A-Za-z0-9_-]{48}'
 
+handlers = [logging.StreamHandler()]
+if os.getenv('GITHUB_AUDITOR_DISABLE_FILE_LOG', '0').lower() not in {'1', 'true', 'yes'}:
+    handlers.insert(0, logging.FileHandler('audit.log'))
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('audit.log'),
-        logging.StreamHandler()
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 
