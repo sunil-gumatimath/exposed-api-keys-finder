@@ -129,16 +129,6 @@ The tool searches for:
 - GitHub Personal Access Token with `repo` scope
 - Internet connection for API calls
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
 
 ## Disclaimer
 
