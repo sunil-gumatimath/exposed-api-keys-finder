@@ -13,6 +13,7 @@ from datetime import datetime
 import importlib.util
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 
 load_dotenv()
 
@@ -21,8 +22,11 @@ if importlib.util.find_spec("tqdm") is not None:
 else:
     tqdm = None
 
-ANTHROPIC_KEY_PATTERN = r'sk-ant-api03-[A-Za-z0-9_-]{95}'
-OPENAI_KEY_PATTERN = r'sk-[A-Za-z0-9_-]{48}'
+# Broadened patterns to capture newer key formats while avoiding excessive false positives
+# Anthropic keys generally start with sk-ant- and are long; set a conservative lower bound
+ANTHROPIC_KEY_PATTERN = r"\bsk-ant-[A-Za-z0-9_-]{50,}\b"
+# OpenAI keys include classic sk-<48>, and newer variants like sk-proj-*, sk-live-*, sk-test-*
+OPENAI_KEY_PATTERN = r"\b(?:sk-[A-Za-z0-9]{48}|sk-(?:live|test)-[A-Za-z0-9]{24,}|sk-proj-[A-Za-z0-9_-]{20,})\b"
 
 handlers = [logging.StreamHandler()]
 if os.getenv('GITHUB_AUDITOR_DISABLE_FILE_LOG', '0').lower() not in {'1', 'true', 'yes'}:
@@ -148,12 +152,15 @@ class APIAuditor:
         return None
     
     async def search_github_code(self, query: str, page: int = 1) -> Optional[Dict[str, Any]]:
-        url = f"https://api.github.com/search/code?q={query}&per_page=100&page={page}"
+        encoded_q = quote_plus(query)
+        url = f"https://api.github.com/search/code?q={encoded_q}&per_page=100&page={page}"
         return await self.request_with_retry(url)
     
     async def search_github_commits(self, query: str, page: int = 1) -> Optional[Dict[str, Any]]:
-        url = f"https://api.github.com/search/commits?q={query}&per_page=100&page={page}"
-        return await self.request_with_retry(url, headers={"Accept": "application/vnd.github+json"})
+        encoded_q = quote_plus(query)
+        url = f"https://api.github.com/search/commits?q={encoded_q}&per_page=100&page={page}"
+        # Commit search historically requires preview header
+        return await self.request_with_retry(url, headers={"Accept": "application/vnd.github.cloak-preview+json"})
     
     async def get_file_content(self, repo_full_name: str, path: str) -> Optional[str]:
         url = f"https://api.github.com/repos/{repo_full_name}/contents/{path}"
@@ -282,7 +289,7 @@ class APIAuditor:
                             'key': key,
                             'repo': repo,
                             'path': path,
-                            'url': f"https://github.com/{repo}/blob/main/{path}",
+                            'url': item.get('html_url') or f"https://github.com/{repo}/blob/{path}",
                             'timestamp': datetime.now().isoformat(),
                             'valid': None
                         }
@@ -361,7 +368,7 @@ class APIAuditor:
                         'key': key,
                         'repo': repo,
                         'commit': commit_sha,
-                        'url': f"https://github.com/{repo}/commit/{commit_sha}",
+                        'url': item.get('html_url') or f"https://github.com/{repo}/commit/{commit_sha}",
                         'message': message[:100],
                         'timestamp': datetime.now().isoformat(),
                         'valid': None
