@@ -254,6 +254,12 @@ class APIAuditor:
         
         return True
     
+    def mask_key(self, key: str) -> str:
+        """Mask a key for safe logging (e.g. sk-abc...1234)"""
+        if len(key) <= 12:
+            return "***"
+        return f"{key[:8]}...{key[-4:]}"
+    
     async def audit_api_keys(self, provider: str, query: str, pattern: str) -> None:
         logger.info(f"Auditing {provider} API keys...")
         all_items = []
@@ -318,7 +324,8 @@ class APIAuditor:
                         }
                         self.progress.add_key(key_data)
                         keys_to_validate.append(key_data)
-                        logger.info(f"Found new {provider} key in {identifier}")
+                        masked = self.mask_key(key)
+                        logger.info(f"Found new {provider} key in {identifier}: {masked}")
                     else:
                         logger.debug(f"Skipping duplicate key in {identifier}")
             
@@ -398,7 +405,8 @@ class APIAuditor:
                     }
                     self.progress.add_key(key_data)
                     keys_to_validate.append(key_data)
-                    logger.info(f"Found new {provider} key in {identifier}")
+                    masked = self.mask_key(key)
+                    logger.info(f"Found new {provider} key in {identifier}: {masked}")
                 else:
                     logger.debug(f"Skipping duplicate key in {identifier}")
             
