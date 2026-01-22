@@ -21,3 +21,10 @@ coverage.xml
 .mypy_cache
 .pytest_cache
 .hypothesis
+
+# Project-specific
+progress.json
+audit_results.json
+audit_results.csv
+audit_results.txt
+audit.log

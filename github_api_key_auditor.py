@@ -22,11 +22,16 @@ if importlib.util.find_spec("tqdm") is not None:
 else:
     tqdm = None
 
-# Broadened patterns to capture newer key formats while avoiding excessive false positives
-# Anthropic keys generally start with sk-ant- and are long; set a conservative lower bound
+# API Key Patterns - Broadened to capture newer key formats
+# Anthropic keys generally start with sk-ant- and are long
 ANTHROPIC_KEY_PATTERN = r"\bsk-ant-[A-Za-z0-9_-]{50,}\b"
 # OpenAI keys include classic sk-<48>, and newer variants like sk-proj-*, sk-live-*, sk-test-*
 OPENAI_KEY_PATTERN = r"\b(?:sk-[A-Za-z0-9]{48}|sk-(?:live|test)-[A-Za-z0-9]{24,}|sk-proj-[A-Za-z0-9_-]{20,})\b"
+# Google AI (Gemini) API keys - typically start with AIza
+GOOGLE_AI_KEY_PATTERN = r"\bAIza[A-Za-z0-9_-]{35}\b"
+
+# Default timeout for API validation requests (seconds)
+DEFAULT_VALIDATION_TIMEOUT = 10
 
 handlers = [logging.StreamHandler()]
 if os.getenv('GITHUB_AUDITOR_DISABLE_FILE_LOG', '0').lower() not in {'1', 'true', 'yes'}:
@@ -176,12 +181,14 @@ class APIAuditor:
         return re.findall(pattern, content)
     
     async def validate_openai_key(self, key: str) -> bool:
+        """Validate an OpenAI API key by making a test request."""
         try:
+            timeout = getattr(self.args, 'timeout', DEFAULT_VALIDATION_TIMEOUT)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     "https://api.openai.com/v1/models",
                     headers={"Authorization": f"Bearer {key}"},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=timeout)
                 ) as response:
                     return response.status == 200
         except Exception as e:
@@ -189,25 +196,41 @@ class APIAuditor:
             return False
     
     async def validate_anthropic_key(self, key: str) -> bool:
+        """Validate an Anthropic API key by making a test request."""
         try:
+            timeout = getattr(self.args, 'timeout', DEFAULT_VALIDATION_TIMEOUT)
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     "https://api.anthropic.com/v1/models",
                     headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=timeout)
                 ) as response:
                     return response.status == 200
         except Exception as e:
             logger.debug(f"Anthropic validation failed: {e}")
             return False
     
+    async def validate_google_key(self, key: str) -> Optional[bool]:
+        """Validate a Google AI API key (no validation endpoint, returns None)."""
+        # Google doesn't have a simple validation endpoint, mark as unknown
+        return None
+    
     async def batch_validate_keys(self, keys_data: List[Dict[str, Any]], provider: str) -> None:
+        """Validate multiple API keys in batch."""
+        validation_map = {
+            "OpenAI": self.validate_openai_key,
+            "Anthropic": self.validate_anthropic_key,
+            "Google": self.validate_google_key,
+        }
+        
+        validator = validation_map.get(provider)
+        if not validator:
+            logger.warning(f"No validator available for provider: {provider}")
+            return
+        
         tasks = []
         for key_data in keys_data:
-            if provider == "OpenAI":
-                tasks.append(self.validate_openai_key(key_data['key']))
-            elif provider == "Anthropic":
-                tasks.append(self.validate_anthropic_key(key_data['key']))
+            tasks.append(validator(key_data['key']))
         
         results = await asyncio.gather(*tasks)
         for key_data, valid in zip(keys_data, results):
@@ -426,6 +449,7 @@ def export_results(progress: ProgressTracker, output_format: str, output_file: s
         logger.info(f"Results exported to {output_file}")
 
 def get_github_token() -> str:
+    """Retrieve GitHub token from environment or prompt user."""
     token = os.getenv('GITHUB_TOKEN')
     if token:
         return token
@@ -446,6 +470,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--updated-after', type=str, help='Filter repositories updated after date (ISO format: YYYY-MM-DD)')
     parser.add_argument('--resume', action='store_true', help='Resume from previous progress')
     parser.add_argument('--checkpoint-file', type=str, default='progress.json', help='Checkpoint file for resume functionality')
+    parser.add_argument('--timeout', type=int, default=DEFAULT_VALIDATION_TIMEOUT, help='Timeout for API validation requests in seconds')
+    parser.add_argument('--providers', type=str, default='openai,anthropic', 
+                        help='Comma-separated list of providers to scan (openai,anthropic,google)')
     
     return parser.parse_args()
 
@@ -489,13 +516,29 @@ async def main():
                 ext = ext.strip().lstrip('.')
                 query_suffix += f" extension:{ext}"
         
+        # Provider configuration: (name, search_query, pattern)
+        provider_configs = {
+            'anthropic': ("Anthropic", "sk-ant-", ANTHROPIC_KEY_PATTERN),
+            'openai': ("OpenAI", "sk-", OPENAI_KEY_PATTERN),
+            'google': ("Google", "AIza", GOOGLE_AI_KEY_PATTERN),
+        }
+        
+        # Parse selected providers
+        selected_providers = [p.strip().lower() for p in args.providers.split(',')]
+        
         async with APIAuditor(token, rate_limiter, progress, args) as auditor:
-            if args.mode == "commits":
-                await auditor.audit_commit_messages("Anthropic", f"sk-ant-{query_suffix}", ANTHROPIC_KEY_PATTERN)
-                await auditor.audit_commit_messages("OpenAI", f"sk-{query_suffix}", OPENAI_KEY_PATTERN)
-            else:
-                await auditor.audit_api_keys("Anthropic", f"sk-ant-{query_suffix}", ANTHROPIC_KEY_PATTERN)
-                await auditor.audit_api_keys("OpenAI", f"sk-{query_suffix}", OPENAI_KEY_PATTERN)
+            for provider_key in selected_providers:
+                if provider_key not in provider_configs:
+                    logger.warning(f"Unknown provider: {provider_key}, skipping...")
+                    continue
+                
+                name, search_term, pattern = provider_configs[provider_key]
+                query = f"{search_term}{query_suffix}"
+                
+                if args.mode == "commits":
+                    await auditor.audit_commit_messages(name, query, pattern)
+                else:
+                    await auditor.audit_api_keys(name, query, pattern)
         
         export_results(progress, args.output_format, args.output_file)
         
