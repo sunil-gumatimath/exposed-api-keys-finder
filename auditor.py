@@ -80,18 +80,32 @@ class ProgressTracker:
                     data = json.load(f)
                     self.processed = set(data.get('processed', []))
                     self.found_keys = data.get('found_keys', [])
-                    self.seen_keys = set(data.get('seen_keys', []))
+                    # seen_keys in JSON can be list of strings (old) or list of dicts (new)
+                    seen_data = data.get('seen_keys', [])
+                    if seen_data and isinstance(seen_data[0], dict):
+                         self.seen_keys = {item['key'] for item in seen_data}
+                    else:
+                        self.seen_keys = set(seen_data)
                 logger.info(f"Resumed: {len(self.processed)} items processed, {len(self.found_keys)} keys found")
             except Exception as e:
                 logger.error(f"Failed to load progress: {e}")
     
     def save_progress(self) -> None:
         try:
+            # Create a map of key -> provider from found_keys
+            key_provider_map = {item['key']: item['provider'] for item in self.found_keys}
+            
+            # Create structured seen_keys list
+            structured_seen_keys = []
+            for key in self.seen_keys:
+                provider = key_provider_map.get(key, "Unknown")
+                structured_seen_keys.append({"provider": provider, "key": key})
+            
             with open(self.checkpoint_file, 'w') as f:
                 json.dump({
                     'processed': list(self.processed),
                     'found_keys': self.found_keys,
-                    'seen_keys': list(self.seen_keys),
+                    'seen_keys': structured_seen_keys,
                     'timestamp': datetime.now().isoformat()
                 }, f, indent=2)
         except Exception as e:
