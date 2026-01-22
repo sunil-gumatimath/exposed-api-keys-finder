@@ -43,40 +43,40 @@ A Python tool to audit GitHub for exposed API keys from multiple providers inclu
 Run the auditor with the following command. You will be prompted for your GitHub token if it's not in the `.env` file.
 
 ```bash
-python github_api_key_auditor.py [options]
+python auditor.py [options]
 ```
 
 ### Examples
 
 - Scan a specific repo for OpenAI and Anthropic keys (default):
   ```bash
-  python github_api_key_auditor.py --repo owner/repo --validate
+  python auditor.py --repo owner/repo --validate
   ```
 
 - Scan for all supported providers:
   ```bash
-  python github_api_key_auditor.py --providers openai,anthropic,google --max-pages 1
+  python auditor.py --providers openai,anthropic,google --max-pages 1
   ```
 
 - Global scan with file type filter:
   ```bash
-  python github_api_key_auditor.py --extensions py,js,env --max-pages 1
+  python auditor.py --extensions py,js,env --max-pages 1
   ```
 
 - Commit messages mode:
   ```bash
-  python github_api_key_auditor.py --mode commits --repo owner/repo
+  python auditor.py --mode commits --repo owner/repo
   ```
 
 - Resume an interrupted scan and write CSV:
   ```bash
-  python github_api_key_auditor.py --resume --checkpoint-file progress.json \
+  python auditor.py --resume --checkpoint-file progress.json \
     --output-format csv --output-file audit.csv
   ```
 
 - Scan only for Google AI keys:
   ```bash
-  python github_api_key_auditor.py --providers google --extensions py,env
+  python auditor.py --providers google --extensions py,env
   ```
 
 ### Options
@@ -117,7 +117,7 @@ python github_api_key_auditor.py [options]
 
 ```
 exposed-api-keys-finder/
-├── github_api_key_auditor.py  # Main auditor script
+├── auditor.py                 # Main auditor script
 ├── requirements.txt           # Python dependencies
 ├── .env.example              # Environment template
 ├── .env                      # Your local config (git-ignored)

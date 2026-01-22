@@ -8,7 +8,7 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from github_api_key_auditor import (
+from auditor import (
     ANTHROPIC_KEY_PATTERN,
     OPENAI_KEY_PATTERN,
     GOOGLE_AI_KEY_PATTERN,
