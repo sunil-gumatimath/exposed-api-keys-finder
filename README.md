@@ -1,138 +1,119 @@
-# Exposed API Keys Finder
+# Exposed API Key Auditor
 
-A Python tool to audit GitHub for exposed API keys from multiple providers including OpenAI, Anthropic, and Google AI.
+A powerful, asynchronous Python tool designed to scan GitHub repositories and commit messages for exposed API keys. It supports resumption of scans, detailed filtering, and automatic validation for supported providers.
 
 ## Features
 
-- Scans for API keys from multiple providers:
-  - **OpenAI** - sk-* keys (classic, proj, live, test variants)
-  - **Anthropic** - sk-ant-* keys
-  - **Google AI** - AIza* keys (Gemini API)
-- Searches in code files or commit messages
-- Filters by repo, file extensions, language, stars, updated date
-- Resumes interrupted scans via checkpoint file
-- Optional validation of found keys (where supported)
-- Configurable timeout for API validation requests
-- Exports results to JSON, CSV, or TXT
+- **Multi-Provider Support**: specialized patterns for OpenAI, Anthropic, and Google AI (Gemini) keys.
+- **Dual Search Modes**: Scan both code (`--mode code`) and commit messages (`--mode commits`).
+- **Smart Validation**: Automatically validates found keys against their respective APIs (OpenAI & Anthropic supported) to determine if they are active.
+- **Resumable Scans**: Tracks progress in `progress.json` so you can stop and resume long-running audits without losing work.
+- **Advanced Filtering**:
+  - specific repositories (`--repo`)
+  - file extensions (`--extensions`)
+  - minimum stars (`--min-stars`)
+  - language (`--language`)
+  - last updated date (`--updated-after`)
+- **Flexible Logging**: Outputs to console and `audit.log`. Can export results to JSON, CSV, or TXT.
 
 ## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sunil-gumatimath/exposed-api-keys-finder.git
-   cd exposed-api-keys-finder
-   ```
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/sunil-gumatimath/exposed-api-keys-finder.git
+    cd exposed-api-keys-finder
+    ```
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2.  Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-3. **Set up your GitHub Token:**
-   Copy the example environment file and add your token:
-   ```bash
-   cp .env.example .env
-   ```
-   Then edit `.env` and add your GitHub personal access token:
-   ```
-   GITHUB_TOKEN=your_github_personal_access_token
-   ```
+3.  Configure your environment:
+    Copy `.env.example` to `.env` and add your GitHub Personal Access Token (PAT).
+    ```bash
+    cp .env.example .env
+    # Edit .env and set GITHUB_TOKEN=your_token_here
+    ```
 
 ## Usage
 
-Run the auditor with the following command. You will be prompted for your GitHub token if it's not in the `.env` file.
-
+Basic usage to scan for OpenAI and Anthropic keys (default):
 ```bash
-python auditor.py [options]
+python auditor.py
 ```
 
 ### Examples
 
-- Scan a specific repo for OpenAI and Anthropic keys (default):
-  ```bash
-  python auditor.py --repo owner/repo --validate
-  ```
-
-- Scan for all supported providers:
-  ```bash
-  python auditor.py --providers openai,anthropic,google --max-pages 1
-  ```
-
-- Global scan with file type filter:
-  ```bash
-  python auditor.py --extensions py,js,env --max-pages 1
-  ```
-
-- Commit messages mode:
-  ```bash
-  python auditor.py --mode commits --repo owner/repo
-  ```
-
-- Resume an interrupted scan and write CSV:
-  ```bash
-  python auditor.py --resume --checkpoint-file progress.json \
-    --output-format csv --output-file audit.csv
-  ```
-
-- Scan only for Google AI keys:
-  ```bash
-  python auditor.py --providers google --extensions py,env
-  ```
-
-### Options
-
-| Option | Description |
-|--------|-------------|
-| `--repo owner/repo` | Search a specific repository |
-| `--extensions ext1,ext2` | File extensions filter (e.g., `py,js,env`) |
-| `--mode {code,commits}` | Search code or commit messages (default: code) |
-| `--providers list` | Comma-separated providers: `openai,anthropic,google` (default: `openai,anthropic`) |
-| `--validate` | Validate found keys against provider APIs |
-| `--timeout N` | Timeout for validation requests in seconds (default: 10) |
-| `--output-format {json,csv,txt}` | Output format (default: json) |
-| `--output-file PATH` | Output file path (default: audit_results.json) |
-| `--max-pages N` | Limit GitHub search pages fetched |
-| `--min-stars N` | Minimum repo stars |
-| `--language LANG` | Filter by programming language |
-| `--updated-after YYYY-MM-DD` | Filter repos updated after date |
-| `--resume` | Resume from checkpoint |
-| `--checkpoint-file PATH` | Progress checkpoint file (default: progress.json) |
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `GITHUB_TOKEN` | Your GitHub personal access token |
-| `GITHUB_AUDITOR_DISABLE_FILE_LOG` | Set to `1` to disable file logging (console only) |
-
-## Key Validation Support
-
-| Provider | Validation Supported | Notes |
-|----------|---------------------|-------|
-| OpenAI | Yes | Tests against /v1/models endpoint |
-| Anthropic | Yes | Tests against /v1/models endpoint |
-| Google AI | No | No public validation endpoint |
-
-## Project Structure
-
-```
-exposed-api-keys-finder/
-├── auditor.py                 # Main auditor script
-├── requirements.txt           # Python dependencies
-├── .env.example              # Environment template
-├── .env                      # Your local config (git-ignored)
-├── .gitignore                # Git exclusions
-├── tests/                    # Unit tests
-└── README.md                 # This file
+**Scan a specific repository:**
+```bash
+python auditor.py --repo sunil-gumatimath/exposed-api-keys-finder
 ```
 
-## Security Note
+**Include Google AI keys in the scan:**
+```bash
+python auditor.py --providers openai,anthropic,google
+```
 
-This tool is for security research and responsible disclosure. Please use it ethically and report any found keys to the respective providers for revocation:
+**Scan commit messages instead of code:**
+```bash
+python auditor.py --mode commits --repo some-org/some-repo
+```
 
-- **OpenAI**: Revoke at https://platform.openai.com/api-keys
-- **Anthropic**: Revoke at https://console.anthropic.com/settings/keys
-- **Google AI**: Revoke at https://console.cloud.google.com/apis/credentials
+**Enable key validation (check if keys are active):**
+```bash
+python auditor.py --validate
+```
+
+**Filter by language and file extension:**
+```bash
+python auditor.py --language python --extensions py,ipynb
+```
+
+**Output results to CSV:**
+```bash
+python auditor.py --output-format csv --output-file results.csv
+```
+
+## Supported Providers & Validation
+
+| Provider | Key Patterns | Validation Supported | Notes |
+|----------|--------------|----------------------|-------|
+| **OpenAI** | `sk-...` (classic, proj, live, test) | ✅ Yes | Tests against `/v1/models` |
+| **Anthropic** | `sk-ant-...` | ✅ Yes | Tests against `/v1/models` |
+| **Google AI** | `AIza...` | ❌ No | No public validation endpoint available |
+
+## CLI Options
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--repo` | Specific repository to search (e.g., `owner/repo`) | Global search |
+| `--mode` | Search mode: `code` or `commits` | `code` |
+| `--providers` | Comma-separated list of providers to scan | `openai,anthropic` |
+| `--extensions` | Filter by file extensions (comma-separated) | All |
+| `--validate` | distinctively check if found keys are active | `False` |
+| `--output-format` | Format for output file (`json`, `csv`, `txt`) | `json` |
+| `--output-file` | Path to save results | `audit_results.json` |
+| `--resume` | Resume from the last checkpoint | `False` |
+| `--checkpoint-file` | File to store progress | `progress.json` |
+| `--timeout` | Timeout (seconds) for validation requests | `10` |
+| `--min-stars` | Filter repos by minimum star count | None |
+| `--language` | Filter repos by programming language | None |
+| `--updated-after` | Filter repos updated after date (`YYYY-MM-DD`) | None |
+| `--sort` | Sort order for GitHub search (`indexed` or best match) | `indexed` |
+
+## Security & Ethics
+
+**This tool is for security research and responsible disclosure purposes only.**
+
+If you discover exposed API keys:
+1.  **Do not use them.**
+2.  Report them to the repository owner immediately.
+3.  Report them to the respective provider for revocation:
+
+*   **OpenAI**: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+*   **Anthropic**: [https://console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+*   **Google Cloud/AI**: [https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
 
 ## License
 
