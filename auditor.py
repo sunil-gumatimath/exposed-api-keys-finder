@@ -158,12 +158,14 @@ class APIAuditor:
     
     async def search_github_code(self, query: str, page: int = 1) -> Optional[Dict[str, Any]]:
         encoded_q = quote_plus(query)
-        url = f"https://api.github.com/search/code?q={encoded_q}&per_page=100&page={page}"
+        sort_param = f"&sort={self.args.sort}&order=desc" if self.args.sort else ""
+        url = f"https://api.github.com/search/code?q={encoded_q}&per_page=100&page={page}{sort_param}"
         return await self.request_with_retry(url)
     
     async def search_github_commits(self, query: str, page: int = 1) -> Optional[Dict[str, Any]]:
         encoded_q = quote_plus(query)
-        url = f"https://api.github.com/search/commits?q={encoded_q}&per_page=100&page={page}"
+        sort_param = f"&sort={self.args.sort}&order=desc" if self.args.sort else ""
+        url = f"https://api.github.com/search/commits?q={encoded_q}&per_page=100&page={page}{sort_param}"
         # Commit search historically requires preview header
         return await self.request_with_retry(url, headers={"Accept": "application/vnd.github.cloak-preview+json"})
     
@@ -476,6 +478,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--min-stars', type=int, help='Minimum number of stars for repositories')
     parser.add_argument('--language', type=str, help='Filter by programming language')
     parser.add_argument('--updated-after', type=str, help='Filter repositories updated after date (ISO format: YYYY-MM-DD)')
+    parser.add_argument('--sort', type=str, choices=['indexed', ''], default='indexed', help='Sort by ("indexed" for recent, "" for best match)')
     parser.add_argument('--resume', action='store_true', help='Resume from previous progress')
     parser.add_argument('--checkpoint-file', type=str, default='progress.json', help='Checkpoint file for resume functionality')
     parser.add_argument('--timeout', type=int, default=DEFAULT_VALIDATION_TIMEOUT, help='Timeout for API validation requests in seconds')
