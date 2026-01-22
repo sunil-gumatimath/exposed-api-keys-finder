@@ -136,4 +136,4 @@ This tool is for security research and responsible disclosure. Please use it eth
 
 ## License
 
-MIT License
+This project is open source. Feel free to use, modify, and distribute it as you see fit.
