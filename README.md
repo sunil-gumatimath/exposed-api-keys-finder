@@ -1,120 +1,195 @@
 # Exposed API Key Auditor
 
-A powerful, asynchronous Python tool designed to scan GitHub repositories and commit messages for exposed API keys. It supports resumption of scans, detailed filtering, and automatic validation for supported providers.
+Async Python CLI to scan GitHub code or commit messages for exposed API keys (OpenAI, Anthropic, Google AI), with resumable checkpoints, optional validation, and safer storage defaults.
 
 ## Features
 
-- **Multi-Provider Support**: specialized patterns for OpenAI, Anthropic, and Google AI (Gemini) keys.
-- **Dual Search Modes**: Scan both code (`--mode code`) and commit messages (`--mode commits`).
-- **Smart Validation**: Automatically validates found keys against their respective APIs (OpenAI & Anthropic supported) to determine if they are active.
-- **Resumable Scans**: Tracks progress in `progress.json` so you can stop and resume long-running audits without losing work.
-- **Advanced Filtering**:
-  - specific repositories (`--repo`)
-  - file extensions (`--extensions`)
-  - minimum stars (`--min-stars`)
-  - language (`--language`)
-  - last updated date (`--updated-after`)
-- **Flexible Logging**: Outputs to console and `audit.log`. Can export results to JSON, CSV, or TXT.
+- Scans GitHub `code` search or `commits` search.
+- Provider support:
+  - OpenAI (`sk-...`, `sk-proj-...`, `sk-live-...`, `sk-test-...`)
+  - Anthropic (`sk-ant-...`)
+  - Google AI (`AIza...`)
+- Async + bounded concurrency for faster scans.
+- Checkpoint/resume support (`progress.json`).
+- Optional key validation:
+  - OpenAI: yes
+  - Anthropic: yes
+  - Google AI: no reliable lightweight validation endpoint
+- Context/noise filtering to reduce false positives.
+- Optional allow/deny regex filters.
+- Export to JSON/CSV/TXT.
+- Optional encrypted output using Fernet.
 
-## Installation
+## Security model (important)
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/sunil-gumatimath/exposed-api-keys-finder.git
-    cd exposed-api-keys-finder
-    ```
+By default, raw keys are **not** stored.
 
-2.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+Stored fields are:
+- `key_hash` (SHA-256)
+- `key_masked` (partial view only)
 
-3.  Configure your environment:
-    Copy `.env.example` to `.env` and add your GitHub Personal Access Token (PAT).
-    ```bash
-    cp .env.example .env
-    # Edit .env and set GITHUB_TOKEN=your_token_here
-    ```
+Where stored:
+- Checkpoint: `progress.json`
+- Export output: file from `--output-file` (default `audit_results.json`)
 
-## Usage
+Raw keys are stored only if you explicitly pass:
+- `--store-raw-keys` (unsafe)
 
-Basic usage to scan for OpenAI and Anthropic keys (default):
+## Requirements
+
+- Python 3.11+ recommended
+- GitHub Personal Access Token in `GITHUB_TOKEN`
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+## Setup
+
+1. Copy `.env.example` to `.env`.
+2. Set:
+   - `GITHUB_TOKEN=your_token`
+3. Optional:
+   - `OUTPUT_ENCRYPTION_KEY=...` for encrypted exports.
+   - `GITHUB_AUDITOR_DISABLE_FILE_LOG=1` to disable `audit.log`.
+
+## Quick start
+
+Basic run:
+
 ```bash
 python auditor.py
 ```
 
-### Examples
+Dry run (search only, no findings export):
 
-**Scan a specific repository:**
 ```bash
-python auditor.py --repo sunil-gumatimath/exposed-api-keys-finder
+python auditor.py --dry-run --providers openai,anthropic,google
 ```
 
-**Include Google AI keys in the scan:**
+Target a single repository:
+
 ```bash
-python auditor.py --providers openai,anthropic,google
+python auditor.py --repo owner/repo --providers openai,anthropic,google
 ```
 
-**Scan commit messages instead of code:**
-```bash
-python auditor.py --mode commits --repo some-org/some-repo
-```
+Validate discovered keys:
 
-**Enable key validation (check if keys are active):**
 ```bash
 python auditor.py --validate
 ```
 
-**Filter by language and file extension:**
+High-throughput scan:
+
 ```bash
-python auditor.py --language python --extensions py,ipynb
+python auditor.py --max-concurrency 20 --checkpoint-interval 50
 ```
 
-**Output results to CSV:**
+## Common commands
+
+Code mode with filters:
+
 ```bash
-python auditor.py --output-format csv --output-file results.csv
+python auditor.py --mode code --extensions py,js,env --language python --min-stars 50
 ```
 
-## Supported Providers & Validation
+Commit-message scan:
 
-| Provider | Key Patterns | Validation Supported | Notes |
-|----------|--------------|----------------------|-------|
-| **OpenAI** | `sk-...` (classic, proj, live, test) | ✅ Yes | Tests against `/v1/models` |
-| **Anthropic** | `sk-ant-...` | ✅ Yes | Tests against `/v1/models` |
-| **Google AI** | `AIza...` | ❌ No | No public validation endpoint available |
+```bash
+python auditor.py --mode commits --repo owner/repo
+```
 
-## CLI Options
+Incremental scan from last checkpoint time:
 
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `--repo` | Specific repository to search (e.g., `owner/repo`) | Global search |
-| `--mode` | Search mode: `code` or `commits` | `code` |
-| `--providers` | Comma-separated list of providers to scan | `openai,anthropic` |
-| `--extensions` | Filter by file extensions (comma-separated) | All |
-| `--validate` | distinctively check if found keys are active | `False` |
-| `--output-format` | Format for output file (`json`, `csv`, `txt`) | `json` |
-| `--output-file` | Path to save results | `audit_results.json` |
-| `--resume` | Resume from the last checkpoint | `False` |
-| `--checkpoint-file` | File to store progress | `progress.json` |
-| `--timeout` | Timeout (seconds) for validation requests | `10` |
-| `--min-stars` | Filter repos by minimum star count | None |
-| `--language` | Filter repos by programming language | None |
-| `--updated-after` | Filter repos updated after date (`YYYY-MM-DD`) | None |
-| `--sort` | Sort order for GitHub search (`indexed` or best match) | `indexed` |
+```bash
+python auditor.py --resume --since-checkpoint
+```
 
-## Security & Ethics
+Encrypted JSON export:
 
-**This tool is for security research and responsible disclosure purposes only.**
+```bash
+python auditor.py --encrypt-output --output-file results.enc
+```
 
-If you discover exposed API keys:
-1.  **Do not use them.**
-2.  Report them to the repository owner immediately.
-3.  Report them to the respective provider for revocation:
+Allow/deny filtering:
 
-*   **OpenAI**: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-*   **Anthropic**: [https://console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-*   **Google Cloud/AI**: [https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+```bash
+python auditor.py --allow-patterns OPENAI_API_KEY,ANTHROPIC_API_KEY --deny-patterns example,dummy,mock
+```
 
-## License
+## CLI options
 
-This project is open source. Feel free to use, modify, and distribute it as you see fit.
+Core:
+
+- `--repo`: target repository (`owner/repo`), default global search.
+- `--mode`: `code` or `commits` (default `code`).
+- `--providers`: comma-separated providers (`openai,anthropic,google`).
+- `--extensions`: comma-separated file extensions (code mode only).
+- `--validate`: validate found keys where supported.
+- `--output-format`: `json`, `csv`, `txt`.
+- `--output-file`: export path.
+- `--resume`: continue from checkpoint.
+- `--checkpoint-file`: checkpoint path (default `progress.json`).
+- `--max-pages`: max GitHub result pages.
+- `--min-stars`: minimum repo stars.
+- `--language`: repo language filter.
+- `--updated-after`: repo updated after date (`YYYY-MM-DD`).
+- `--sort`: search sort mode (`indexed` or empty best-match mode).
+- `--timeout`: validation request timeout seconds.
+
+Performance/UX:
+
+- `--max-concurrency`: concurrent item workers.
+- `--checkpoint-interval`: save progress every N processed items.
+- `--dry-run`: search only, no content processing/export.
+- `--since-checkpoint`: only process results newer than checkpoint timestamp.
+
+Security/filtering:
+
+- `--allow-patterns`: comma-separated regex list; if provided, matching context is prioritized.
+- `--deny-patterns`: comma-separated regex list; matched context is rejected.
+- `--store-raw-keys`: include raw keys in checkpoint/export (unsafe).
+- `--encrypt-output`: encrypt exported file with Fernet.
+- `--encryption-key`: Fernet key string (or use `OUTPUT_ENCRYPTION_KEY` env var).
+
+## Output files
+
+- `progress.json`:
+  - processed identifiers
+  - findings
+  - dedupe hashes
+  - checkpoint timestamp
+- `audit.log`:
+  - runtime logs (unless disabled)
+- Export file:
+  - JSON/CSV/TXT or encrypted bytes if `--encrypt-output`
+
+## Testing
+
+Run tests:
+
+```bash
+python -m pytest -q
+```
+
+CI:
+- GitHub Actions workflow in `.github/workflows/ci.yml` runs tests on Python 3.11 and 3.12.
+
+## Troubleshooting
+
+- `ModuleNotFoundError: dotenv` or `No module named pytest`:
+  - `python -m pip install -r requirements.txt`
+- GitHub rate limits:
+  - use a valid PAT with appropriate scope
+  - reduce `--max-concurrency`
+  - set `--max-pages`
+- Empty results:
+  - broaden providers
+  - remove strict filters (`--language`, `--min-stars`, `--updated-after`)
+
+## Responsible use
+
+This tool is for authorized security auditing and responsible disclosure only.
+Do not use discovered credentials. Report exposures to repository owners/providers for revocation.
